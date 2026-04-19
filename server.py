@@ -2,6 +2,7 @@ import socket
 import sqlite3
 import datetime
 import sys
+import threading
 
 # Configuración del socket TCP/IP
 HOST = '127.0.0.1'
@@ -33,14 +34,14 @@ def init_socket():
         # evita el error de puerto ocupado si se cierra mal
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((HOST, PORT))
-        server_socket.listen(1)
+        server_socket.listen(5)
         return server_socket
     except OSError as e:
         print(f"Error al iniciar el servidor, puede que el puerto {PORT} esté ocupado: {e}")
         sys.exit(1)
 
 def save_message(content, client_ip):
-    # Guardamos el mensaje en la DB y devolvemos la fecha
+    # guardamos el mensaje en la DB y devolvemos la fecha
     try:
         conn = sqlite3.connect('chat.db')
         cursor = conn.cursor()
@@ -54,6 +55,31 @@ def save_message(content, client_ip):
         print(f"Error al guardar en DB: {e}")
         return None
 
+def handle_client(conn, addr):
+    # Esta funcion maneja a un cliente particular
+    try:
+        while True:
+            data = conn.recv(1024)
+            if not data:
+                break
+            
+            msg = data.decode('utf-8')
+            print(f"Recibido de {addr[0]}: {msg}")
+            
+            timestamp = save_message(msg, addr[0])
+            
+            if timestamp:
+                response = f"Mensaje recibido: {timestamp}"
+            else:
+                response = "Error al guardar el mensaje"
+                
+            conn.send(response.encode('utf-8'))
+    except Exception as e:
+        print(f"Error con el cliente {addr[0]}: {e}")
+    finally:
+        conn.close()
+        print(f"Cliente desconectado: {addr}")
+
 def handle_connections(server_sock):
     print(f"Servidor escuchando en {HOST}:{PORT}...")
     while True:
@@ -61,25 +87,9 @@ def handle_connections(server_sock):
             conn, addr = server_sock.accept()
             print(f"Se conectó un cliente desde {addr}")
             
-            while True:
-                data = conn.recv(1024)
-                if not data:
-                    break
-                
-                msg = data.decode('utf-8')
-                print(f"Recibido: {msg}")
-                
-                timestamp = save_message(msg, addr[0])
-                
-                if timestamp:
-                    response = f"Mensaje recibido: {timestamp}"
-                else:
-                    response = "Error al guardar el mensaje"
-                    
-                conn.send(response.encode('utf-8'))
-                
-            conn.close()
-            print(f"Cliente desconectado: {addr}")
+            # hilo nuevo por cada cliente que se conecta
+            client_thread = threading.Thread(target=handle_client, args=(conn, addr))
+            client_thread.start()
             
         except KeyboardInterrupt:
             print("\nServidor apagado manualmente.")
