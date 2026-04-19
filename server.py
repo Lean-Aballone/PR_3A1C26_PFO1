@@ -25,3 +25,16 @@ def init_db():
     except sqlite3.Error as e:
         print(f"No se pudo acceder a la base de datos: {e}")
         sys.exit(1)
+
+def init_socket():
+    # Configuración del socket TCP/IP
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # evita el error de puerto ocupado si se cierra mal
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((HOST, PORT))
+        server_socket.listen(1)
+        return server_socket
+    except OSError as e:
+        print(f"Error al iniciar el servidor, puede que el puerto {PORT} esté ocupado: {e}")
+        sys.exit(1)
