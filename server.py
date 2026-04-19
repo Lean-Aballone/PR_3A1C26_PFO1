@@ -53,3 +53,40 @@ def save_message(content, client_ip):
     except sqlite3.Error as e:
         print(f"Error al guardar en DB: {e}")
         return None
+
+def handle_connections(server_sock):
+    print(f"Servidor escuchando en {HOST}:{PORT}...")
+    while True:
+        try:
+            conn, addr = server_sock.accept()
+            print(f"Se conectó un cliente desde {addr}")
+            
+            while True:
+                data = conn.recv(1024)
+                if not data:
+                    break
+                
+                msg = data.decode('utf-8')
+                print(f"Recibido: {msg}")
+                
+                timestamp = save_message(msg, addr[0])
+                
+                if timestamp:
+                    response = f"Mensaje recibido: {timestamp}"
+                else:
+                    response = "Error al guardar el mensaje"
+                    
+                conn.send(response.encode('utf-8'))
+                
+            conn.close()
+            print(f"Cliente desconectado: {addr}")
+            
+        except KeyboardInterrupt:
+            print("\nServidor apagado manualmente.")
+            break
+
+if __name__ == '__main__':
+    init_db()
+    s = init_socket()
+    handle_connections(s)
+    s.close()
