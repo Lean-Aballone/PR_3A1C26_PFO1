@@ -38,3 +38,18 @@ def init_socket():
     except OSError as e:
         print(f"Error al iniciar el servidor, puede que el puerto {PORT} esté ocupado: {e}")
         sys.exit(1)
+
+def save_message(content, client_ip):
+    # Guardamos el mensaje en la DB y devolvemos la fecha
+    try:
+        conn = sqlite3.connect('chat.db')
+        cursor = conn.cursor()
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute('INSERT INTO messages (contenido, fecha_envio, ip_cliente) VALUES (?, ?, ?)',
+                       (content, now, client_ip))
+        conn.commit()
+        conn.close()
+        return now
+    except sqlite3.Error as e:
+        print(f"Error al guardar en DB: {e}")
+        return None
